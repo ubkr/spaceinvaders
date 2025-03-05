@@ -605,10 +605,22 @@ const bombSpeed = 3;
           if (invaders[c][r].status === 1) {
             invaders[c][r].x += invaderDirection * invaderSpeed;
             
-            // Check if invader has reached player's vertical position
-            if (invaders[c][r].y + invaderHeight >= canvas.height - playerHeight - 10) {
+            // Check for collision with player
+            const invader = invaders[c][r];
+            if (invader.y + invaderHeight >= canvas.height - playerHeight - 10 &&
+                invader.x + invaderWidth >= playerX - playerWidth/2 &&
+                invader.x <= playerX + playerWidth/2) {
               gameActive = false;
               gameOverScreen.classList.add('show');
+              
+              // Add explosion effect for collision
+              explosions.push({
+                x: playerX,
+                y: canvas.height - playerHeight - 5,
+                radius: 15,
+                alpha: 1,
+                color: '#f00'
+              });
               return;
             }
           }
