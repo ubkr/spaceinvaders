@@ -756,6 +756,8 @@
     document.addEventListener("keydown", (event) => {
       if (event.key === "Enter" && gameState.status === 'gameOver') {
         initializeGame();
+        gameState.status = 'playing';
+        requestAnimationFrame(gameLoop);
         return;
       }
 
