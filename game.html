@@ -604,6 +604,13 @@ const bombSpeed = 3;
         for (let r = 0; r < invaderRowCount; r++) {
           if (invaders[c][r].status === 1) {
             invaders[c][r].x += invaderDirection * invaderSpeed;
+            
+            // Check if invader has reached player's vertical position
+            if (invaders[c][r].y + invaderHeight >= canvas.height - playerHeight - 10) {
+              gameActive = false;
+              gameOverScreen.classList.add('show');
+              return;
+            }
           }
         }
       }
