@@ -60,6 +60,40 @@
     text-shadow: 0 0 5px #0ff;
   }
 
+  #lives {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 20px;
+    color: #f00;
+    text-shadow: 0 0 5px #f00;
+  }
+
+  #game-over {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    font-size: 48px;
+    color: #f00;
+    text-shadow: 0 0 20px #f00;
+    opacity: 0;
+    transition: all 0.5s ease;
+    z-index: 1000;
+  }
+
+  #game-over.show {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.1); }
+    100% { transform: translate(-50%, -50%) scale(1); }
+  }
+
   #settings-button {
     position: fixed;
     bottom: 20px;
@@ -135,6 +169,7 @@
   <div class="stars" id="stars"></div>
   <h1>Space Invaders</h1>
   <canvas id="gameCanvas" width="480" height="320"></canvas>
+  <div id="game-over">GAME OVER</div>
   <div id="settings-button">⚙️</div>
   <div id="settings-panel">
     <div class="settings-group">
@@ -150,6 +185,7 @@
     const settingsPanel = document.getElementById('settings-panel');
     const playerSpeedInput = document.getElementById('player-speed');
     const playerSpeedDisplay = playerSpeedInput.nextElementSibling;
+    const gameOverScreen = document.getElementById('game-over');
 
     settingsButton.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -188,6 +224,10 @@
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
+    // Game State
+    let gameActive = true;
+    let lives = 3;
+
     // Player
     let playerX = canvas.width / 2;
     let playerSpeed = 5;
@@ -198,6 +238,11 @@
     const bullets = [];
     const bulletSpeed = 7;
     const bulletEffects = [];
+
+    // Invader Bombs
+    const bombs = [];
+    const bombSpeed = 3;
+    const bombChance = 0.02; // Chance for each invader to drop a bomb per frame
 
     // Invaders
     const invaders = [];
@@ -230,6 +275,15 @@
     }
 
     initializeInvaders();
+
+    function drawLives() {
+      ctx.font = "20px 'Courier New'";
+      ctx.fillStyle = "#f00";
+      ctx.shadowColor = "#f00";
+      ctx.shadowBlur = 10;
+      ctx.fillText("LIVES: " + "❤️".repeat(lives), canvas.width - 150, 20);
+      ctx.shadowBlur = 0;
+    }
 
     // Draw Player with gradient
     function drawPlayer() {
@@ -281,6 +335,35 @@
       ctx.restore();
     }
 
+    // Draw Invader Bombs
+    function drawBombs() {
+      ctx.save();
+      for (const bomb of bombs) {
+        const gradient = ctx.createLinearGradient(
+          bomb.x, bomb.y,
+          bomb.x, bomb.y + 10
+        );
+        gradient.addColorStop(0, '#f00');
+        gradient.addColorStop(1, '#ff0');
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(bomb.x, bomb.y);
+        ctx.lineTo(bomb.x - 3, bomb.y + 6);
+        ctx.lineTo(bomb.x + 3, bomb.y + 6);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Add trail effect
+        bulletEffects.push({
+          x: bomb.x,
+          y: bomb.y - 5,
+          alpha: 0.7
+        });
+      }
+      ctx.restore();
+    }
+
     // Draw bullet effects
     function drawBulletEffects() {
       for (let i = bulletEffects.length - 1; i >= 0; i--) {
@@ -326,6 +409,14 @@
             ctx.lineWidth = 1;
             ctx.stroke();
             ctx.restore();
+
+            // Random chance to drop a bomb
+            if (gameActive && Math.random() < bombChance) {
+              bombs.push({
+                x: x + invaderWidth/2,
+                y: y + invaderHeight
+              });
+            }
           }
         }
       }
@@ -358,6 +449,42 @@
         if (bullets[i].y < 0) {
           bullets.splice(i, 1);
           i--;
+        }
+      }
+    }
+
+    function updateBombs() {
+      for (let i = bombs.length - 1; i >= 0; i--) {
+        bombs[i].y += bombSpeed;
+        
+        // Check for collision with player
+        const bomb = bombs[i];
+        if (bomb.y + 6 > canvas.height - playerHeight - 10 &&
+            bomb.x > playerX - playerWidth/2 &&
+            bomb.x < playerX + playerWidth/2) {
+          // Player hit!
+          lives--;
+          bombs.splice(i, 1);
+          
+          // Add explosion effect
+          explosions.push({
+            x: playerX,
+            y: canvas.height - playerHeight - 5,
+            radius: 10,
+            alpha: 1,
+            color: '#f00'
+          });
+
+          if (lives <= 0) {
+            gameActive = false;
+            gameOverScreen.classList.add('show');
+          }
+          continue;
+        }
+
+        // Remove bombs that go off screen
+        if (bomb.y > canvas.height) {
+          bombs.splice(i, 1);
         }
       }
     }
@@ -436,17 +563,22 @@
     }
 
     function gameLoop() {
+      if (!gameActive) return;
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       drawPlayer();
       drawInvaders();
       drawBullets();
+      drawBombs();
       drawBulletEffects();
       drawExplosions();
       drawScore();
+      drawLives();
 
       updateInvaders();
       updateBullets();
+      updateBombs();
       collisionDetection();
 
       requestAnimationFrame(gameLoop);
@@ -455,6 +587,8 @@
     gameLoop();
 
     document.addEventListener("keydown", function(event) {
+      if (!gameActive) return;
+      
       if (event.key === "ArrowLeft") {
         playerX -= playerSpeed;
         if (playerX < playerWidth / 2) {
@@ -467,6 +601,17 @@
         }
       } else if (event.key === " ") {
         bullets.push({ x: playerX, y: canvas.height - playerHeight - 10 });
+      } else if (event.key === "Enter" && !gameActive) {
+        // Restart game
+        gameActive = true;
+        lives = 3;
+        score = 0;
+        bombs.length = 0;
+        bullets.length = 0;
+        explosions.length = 0;
+        initializeInvaders();
+        gameOverScreen.classList.remove('show');
+        gameLoop();
       }
     });
   </script>
