@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
+<!-- Previous head content unchanged -->
 <title>Space Invaders</title>
 <style>
+  /* Previous CSS unchanged */
   :root {
     --color-cyan: #0ff;
     --color-red: #f00;
@@ -224,6 +226,7 @@
 </style>
 </head>
 <body>
+  <!-- Previous HTML body content unchanged -->
   <div class="stars" id="stars"></div>
   <h1>Space Invaders</h1>
   <canvas id="gameCanvas" width="480" height="320"></canvas>
@@ -277,7 +280,9 @@
       },
       BOMBS: {
         SPEED: 3,
-        INITIAL_FREQUENCY: 0.5 // Hz
+        INITIAL_FREQUENCY: 0.5, // Hz
+        WIDTH: 6,
+        HEIGHT: 6
       },
       INITIAL_LIVES: 3
     };
@@ -312,12 +317,30 @@
         ctx.closePath();
         ctx.fill();
         return canvas;
+      })(),
+      bomb: (function() {
+        const canvas = document.createElement('canvas');
+        canvas.width = CONFIG.BOMBS.WIDTH;
+        canvas.height = CONFIG.BOMBS.HEIGHT;
+        const ctx = canvas.getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, CONFIG.BOMBS.HEIGHT);
+        gradient.addColorStop(0, '#f00');
+        gradient.addColorStop(1, '#ff0');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(CONFIG.BOMBS.WIDTH/2, 0);
+        ctx.lineTo(0, CONFIG.BOMBS.HEIGHT);
+        ctx.lineTo(CONFIG.BOMBS.WIDTH, CONFIG.BOMBS.HEIGHT);
+        ctx.closePath();
+        ctx.fill();
+        return canvas;
       })()
     };
 
     // Object Pools
     const ObjectPool = {
       bullets: Array(50).fill().map(() => ({ active: false, x: 0, y: 0 })),
+      bombs: Array(20).fill().map(() => ({ active: false, x: 0, y: 0 })),
       effects: Array(100).fill().map(() => ({ active: false, x: 0, y: 0, alpha: 0 })),
       explosions: Array(20).fill().map(() => ({ 
         active: false, x: 0, y: 0, radius: 0, alpha: 0, color: '#fff' 
@@ -325,6 +348,10 @@
       
       getBullet() {
         return this.bullets.find(b => !b.active) || null;
+      },
+      
+      getBomb() {
+        return this.bombs.find(b => !b.active) || null;
       },
       
       getEffect() {
@@ -337,6 +364,7 @@
       
       reset() {
         this.bullets.forEach(b => b.active = false);
+        this.bombs.forEach(b => b.active = false);
         this.effects.forEach(e => e.active = false);
         this.explosions.forEach(e => e.active = false);
       }
@@ -383,16 +411,18 @@
     );
 
     // Initialize game objects
-    function initializeGame() {
-      // Reset game state
-      gameState.status = 'playing';
-      gameState.score = 0;
-      gameState.level = 1;
-      gameState.lives = CONFIG.INITIAL_LIVES;
-      gameState.invaderSpeed = CONFIG.INVADERS.INITIAL_SPEED;
-      gameState.bombFrequency = CONFIG.BOMBS.INITIAL_FREQUENCY;
-      gameState.playerX = canvas.width / 2;
-      gameState.levelInProgress = true;
+  function initializeGame() {
+    // Reset game state
+    gameState.status = 'playing';
+    gameState.score = 0;
+    gameState.level = 1;
+    gameState.lives = CONFIG.INITIAL_LIVES;
+    gameState.invaderSpeed = CONFIG.INVADERS.INITIAL_SPEED;
+    gameState.bombFrequency = CONFIG.BOMBS.INITIAL_FREQUENCY;
+    gameState.playerX = canvas.width / 2;
+    gameState.levelInProgress = true;
+    gameState.lastBombTime = Date.now();
+    gameState.invaderDirection = 1;
 
       // Reset object pools
       ObjectPool.reset();
@@ -416,7 +446,6 @@
       levelCompleteScreen.classList.remove('show');
     }
 
-    // Draw functions using cached gradients
     function drawPlayer() {
       ctx.save();
       const gradient = ctx.createLinearGradient(
@@ -449,6 +478,26 @@
             bullet.x - CONFIG.BULLETS.WIDTH/2, 
             bullet.y
           );
+        }
+      });
+    }
+
+    function drawBombs() {
+      ObjectPool.bombs.forEach(bomb => {
+        if (bomb.active) {
+          ctx.drawImage(GRADIENTS.bomb,
+            bomb.x - CONFIG.BOMBS.WIDTH/2,
+            bomb.y
+          );
+          
+          // Add trail effect
+          const effect = ObjectPool.getEffect();
+          if (effect) {
+            effect.active = true;
+            effect.x = bomb.x;
+            effect.y = bomb.y - 5;
+            effect.alpha = 0.7;
+          }
         }
       });
     }
@@ -509,6 +558,43 @@
       });
     }
 
+    function updateBombs() {
+      ObjectPool.bombs.forEach(bomb => {
+        if (bomb.active) {
+          bomb.y += CONFIG.BOMBS.SPEED;
+          
+          // Check for collision with player
+          if (bomb.y + CONFIG.BOMBS.HEIGHT > canvas.height - CONFIG.PLAYER.HEIGHT - 10 &&
+              bomb.x > gameState.playerX - CONFIG.PLAYER.WIDTH/2 &&
+              bomb.x < gameState.playerX + CONFIG.PLAYER.WIDTH/2) {
+            bomb.active = false;
+            gameState.lives--;
+            
+            // Add explosion effect
+            const explosion = ObjectPool.getExplosion();
+            if (explosion) {
+              explosion.active = true;
+              explosion.x = gameState.playerX;
+              explosion.y = canvas.height - CONFIG.PLAYER.HEIGHT - 5;
+              explosion.radius = 10;
+              explosion.alpha = 1;
+              explosion.color = '#f00';
+            }
+            
+            if (gameState.lives <= 0) {
+              gameState.status = 'gameOver';
+              gameOverScreen.classList.add('show');
+            }
+          }
+          
+          // Remove bombs that go off screen
+          if (bomb.y > canvas.height) {
+            bomb.active = false;
+          }
+        }
+      });
+    }
+
     function updateInvaders() {
       let edgeReached = false;
       
@@ -562,12 +648,11 @@
         
         if (activeInvaders.length > 0) {
           const bomber = activeInvaders[Math.floor(Math.random() * activeInvaders.length)];
-          const effect = ObjectPool.getEffect();
-          if (effect) {
-            effect.active = true;
-            effect.x = bomber.x + CONFIG.INVADERS.WIDTH/2;
-            effect.y = bomber.y + CONFIG.INVADERS.HEIGHT;
-            effect.alpha = 1;
+          const bomb = ObjectPool.getBomb();
+          if (bomb) {
+            bomb.active = true;
+            bomb.x = bomber.x + CONFIG.INVADERS.WIDTH/2;
+            bomb.y = bomber.y + CONFIG.INVADERS.HEIGHT;
           }
           gameState.lastBombTime = currentTime;
         }
@@ -713,6 +798,7 @@
 
       updatePlayer();
       updateBullets();
+      updateBombs();
       updateInvaders();
       collisionDetection();
       checkLevelComplete();
@@ -720,6 +806,7 @@
       drawPlayer();
       drawInvaders();
       drawBullets();
+      drawBombs();
       
       // Draw explosions
       ObjectPool.explosions.forEach(explosion => {
