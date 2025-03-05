@@ -613,14 +613,40 @@ const bombSpeed = 3;
               gameActive = false;
               gameOverScreen.classList.add('show');
               
-              // Add explosion effect for collision
+              // Add multiple explosion effects for a dramatic collision
+              // Center explosion
               explosions.push({
                 x: playerX,
                 y: canvas.height - playerHeight - 5,
-                radius: 15,
+                radius: 20,
                 alpha: 1,
                 color: '#f00'
               });
+              // Secondary explosions
+              explosions.push({
+                x: playerX - 10,
+                y: canvas.height - playerHeight,
+                radius: 15,
+                alpha: 0.8,
+                color: '#ff0'
+              });
+              explosions.push({
+                x: playerX + 10,
+                y: canvas.height - playerHeight,
+                radius: 15,
+                alpha: 0.8,
+                color: '#ff0'
+              });
+              // Smaller debris explosions
+              for (let i = 0; i < 5; i++) {
+                explosions.push({
+                  x: playerX + (Math.random() * 40 - 20),
+                  y: canvas.height - playerHeight + (Math.random() * 20 - 10),
+                  radius: 5 + Math.random() * 5,
+                  alpha: 0.6,
+                  color: '#f0f'
+                });
+              }
               return;
             }
           }
