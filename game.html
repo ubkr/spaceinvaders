@@ -707,6 +707,7 @@
         levelCompleteScreen.classList.add('show');
         
         setTimeout(() => {
+          // Increase level and difficulty
           gameState.level++;
           gameState.invaderSpeed *= 1.1;
           gameState.bombFrequency = Math.min(
@@ -714,11 +715,32 @@
             10
           );
           
+          // Update UI to reflect new settings
           invaderSpeedInput.value = gameState.invaderSpeed.toFixed(1);
           bombFrequencyInput.value = gameState.bombFrequency.toFixed(1);
+          invaderSpeedInput.nextElementSibling.textContent = `Current: ${gameState.invaderSpeed.toFixed(1)}`;
+          bombFrequencyInput.nextElementSibling.textContent = `Current: ${gameState.bombFrequency.toFixed(1)} Hz`;
           
+          // Reset for next level while preserving progress
           gameState.levelInProgress = true;
-          initializeGame();
+          gameState.lastBombTime = Date.now();
+          gameState.invaderDirection = 1;
+          gameState.playerX = canvas.width / 2;
+          
+          // Reset object pools
+          ObjectPool.reset();
+          
+          // Reinitialize invaders
+          for (let c = 0; c < CONFIG.INVADERS.COLS; c++) {
+            for (let r = 0; r < CONFIG.INVADERS.ROWS; r++) {
+              invaders[c][r] = {
+                x: (c * (CONFIG.INVADERS.WIDTH + CONFIG.INVADERS.PADDING)) + CONFIG.INVADERS.OFFSET_LEFT,
+                y: (r * (CONFIG.INVADERS.HEIGHT + CONFIG.INVADERS.PADDING)) + CONFIG.INVADERS.OFFSET_TOP,
+                status: 1
+              };
+            }
+          }
+          
           levelCompleteScreen.classList.remove('show');
         }, 2000);
       }
