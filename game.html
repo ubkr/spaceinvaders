@@ -258,6 +258,15 @@
     let currentLevel = 1;
     let levelInProgress = true;
     
+    // Input state tracking
+    const pressedKeys = {
+      ArrowLeft: false,
+      ArrowRight: false,
+      " ": false
+    };
+    let lastShotTime = 0;
+    const shootingCooldown = 250; // 250ms cooldown between shots
+    
     // Bomb timing variables
     let lastBombTime = 0;
     let bombInterval = 2000; // Start at 0.5 Hz (2000ms)
@@ -714,6 +723,7 @@ const bombSpeed = 3;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      updatePlayer();
       drawPlayer();
       drawInvaders();
       drawBullets();
@@ -757,21 +767,46 @@ const bombSpeed = 3;
       }
 
       if (!gameActive) return;
-
-      if (event.key === "ArrowLeft") {
+      
+      if (event.key in pressedKeys) {
+        pressedKeys[event.key] = true;
+        event.preventDefault();
+      }
+    });
+    
+    document.addEventListener("keyup", function(event) {
+      if (event.key in pressedKeys) {
+        pressedKeys[event.key] = false;
+        event.preventDefault();
+      }
+    });
+    
+    function updatePlayer() {
+      if (!gameActive) return;
+      
+      // Handle movement
+      if (pressedKeys.ArrowLeft) {
         playerX -= playerSpeed;
         if (playerX < playerWidth / 2) {
           playerX = playerWidth / 2;
         }
-      } else if (event.key === "ArrowRight") {
+      }
+      if (pressedKeys.ArrowRight) {
         playerX += playerSpeed;
         if (playerX > canvas.width - playerWidth / 2) {
           playerX = canvas.width - playerWidth / 2;
         }
-      } else if (event.key === " ") {
-        bullets.push({ x: playerX, y: canvas.height - playerHeight - 10 });
       }
-    });
+      
+      // Handle shooting with cooldown
+      if (pressedKeys[" "]) {
+        const currentTime = Date.now();
+        if (currentTime - lastShotTime >= shootingCooldown) {
+          bullets.push({ x: playerX, y: canvas.height - playerHeight - 10 });
+          lastShotTime = currentTime;
+        }
+      }
+    }
   </script>
 </body>
 </html>
