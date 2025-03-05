@@ -74,18 +74,37 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) scale(0);
-    font-size: 48px;
-    color: #f00;
-    text-shadow: 0 0 20px #f00;
     opacity: 0;
     transition: all 0.5s ease;
     z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  #game-over .main-text {
+    font-size: 48px;
+    color: #f00;
+    text-shadow: 0 0 20px #f00;
+  }
+
+  #game-over .restart-text {
+    font-size: 24px;
+    color: #0ff;
+    text-shadow: 0 0 10px #0ff;
+    opacity: 0.8;
+    animation: blink 1.5s ease-in-out infinite;
   }
 
   #game-over.show {
     transform: translate(-50%, -50%) scale(1);
     opacity: 1;
-    animation: pulse 2s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
   }
 
   @keyframes pulse {
@@ -169,7 +188,10 @@
   <div class="stars" id="stars"></div>
   <h1>Space Invaders</h1>
   <canvas id="gameCanvas" width="480" height="320"></canvas>
-  <div id="game-over">GAME OVER</div>
+  <div id="game-over">
+    <div class="main-text">GAME OVER</div>
+    <div class="restart-text">Press ENTER to restart</div>
+  </div>
   <div id="settings-button">⚙️</div>
   <div id="settings-panel">
     <div class="settings-group">
