@@ -177,6 +177,11 @@
       <input type="range" id="player-speed" min="1" max="15" value="5">
       <div class="value-display">Current: 5</div>
     </div>
+    <div class="settings-group">
+      <label for="bomb-frequency">Bomb Frequency (Hz)</label>
+      <input type="range" id="bomb-frequency" min="0.1" max="10" step="0.1" value="0.5">
+      <div class="value-display">Current: 0.5 Hz</div>
+    </div>
   </div>
 
   <script>
@@ -184,8 +189,14 @@
     const settingsButton = document.getElementById('settings-button');
     const settingsPanel = document.getElementById('settings-panel');
     const playerSpeedInput = document.getElementById('player-speed');
+    const bombFrequencyInput = document.getElementById('bomb-frequency');
     const playerSpeedDisplay = playerSpeedInput.nextElementSibling;
+    const bombFrequencyDisplay = bombFrequencyInput.nextElementSibling;
     const gameOverScreen = document.getElementById('game-over');
+
+    // Bomb timing variables
+    let lastBombTime = 0;
+    let bombInterval = 2000; // Start at 0.5 Hz (2000ms)
 
     settingsButton.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -202,6 +213,12 @@
       const newSpeed = parseInt(e.target.value);
       playerSpeedDisplay.textContent = `Current: ${newSpeed}`;
       playerSpeed = newSpeed;
+    });
+
+    bombFrequencyInput.addEventListener('input', (e) => {
+      const newFreq = parseFloat(e.target.value);
+      bombFrequencyDisplay.textContent = `Current: ${newFreq.toFixed(1)} Hz`;
+      bombInterval = 1000 / newFreq; // Convert Hz to milliseconds
     });
 
     // Create stars
@@ -238,11 +255,10 @@
     const bullets = [];
     const bulletSpeed = 7;
     const bulletEffects = [];
+// Invader Bombs
+const bombs = [];
+const bombSpeed = 3;
 
-    // Invader Bombs
-    const bombs = [];
-    const bombSpeed = 3;
-    const bombChance = 0.02; // Chance for each invader to drop a bomb per frame
 
     // Invaders
     const invaders = [];
@@ -410,12 +426,26 @@
             ctx.stroke();
             ctx.restore();
 
-            // Random chance to drop a bomb
-            if (gameActive && Math.random() < bombChance) {
-              bombs.push({
-                x: x + invaderWidth/2,
-                y: y + invaderHeight
-              });
+            // Check if it's time to drop a bomb based on frequency
+            const currentTime = Date.now();
+            if (gameActive && currentTime - lastBombTime >= bombInterval) {
+              // Pick a random active invader to drop the bomb
+              const activeInvaders = [];
+              for (let col = 0; col < invaderColumnCount; col++) {
+                for (let row = 0; row < invaderRowCount; row++) {
+                  if (invaders[col][row].status === 1) {
+                    activeInvaders.push(invaders[col][row]);
+                  }
+                }
+              }
+              if (activeInvaders.length > 0) {
+                const bomber = activeInvaders[Math.floor(Math.random() * activeInvaders.length)];
+                bombs.push({
+                  x: bomber.x + invaderWidth/2,
+                  y: bomber.y + invaderHeight
+                });
+                lastBombTime = currentTime;
+              }
             }
           }
         }
