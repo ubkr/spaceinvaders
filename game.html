@@ -60,6 +60,33 @@
     text-shadow: 0 0 5px #0ff;
   }
 
+  #level {
+    position: absolute;
+    top: 40px;
+    left: 10px;
+    font-size: 20px;
+    color: #0f0;
+    text-shadow: 0 0 5px #0f0;
+  }
+
+  #level-complete {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+    transition: all 0.5s ease;
+    z-index: 1000;
+    font-size: 36px;
+    color: #0f0;
+    text-shadow: 0 0 20px #0f0;
+  }
+
+  #level-complete.show {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+
   #lives {
     position: absolute;
     top: 10px;
@@ -194,6 +221,7 @@
     <div class="main-text">GAME OVER</div>
     <div class="restart-text">Press ENTER to restart</div>
   </div>
+  <div id="level-complete">LEVEL COMPLETE!</div>
   <div id="settings-button">⚙️</div>
   <div id="settings-panel">
     <div class="settings-group">
@@ -206,6 +234,11 @@
       <input type="range" id="bomb-frequency" min="0.1" max="10" step="0.1" value="0.5">
       <div class="value-display">Current: 0.5 Hz</div>
     </div>
+    <div class="settings-group">
+      <label for="invader-speed">Invader Speed</label>
+      <input type="range" id="invader-speed" min="0.5" max="5" step="0.5" value="1">
+      <div class="value-display">Current: 1</div>
+    </div>
   </div>
 
   <script>
@@ -214,10 +247,17 @@
     const settingsPanel = document.getElementById('settings-panel');
     const playerSpeedInput = document.getElementById('player-speed');
     const bombFrequencyInput = document.getElementById('bomb-frequency');
+    const invaderSpeedInput = document.getElementById('invader-speed');
     const playerSpeedDisplay = playerSpeedInput.nextElementSibling;
     const bombFrequencyDisplay = bombFrequencyInput.nextElementSibling;
+    const invaderSpeedDisplay = invaderSpeedInput.nextElementSibling;
     const gameOverScreen = document.getElementById('game-over');
+    const levelCompleteScreen = document.getElementById('level-complete');
 
+    // Game variables
+    let currentLevel = 1;
+    let levelInProgress = true;
+    
     // Bomb timing variables
     let lastBombTime = 0;
     let bombInterval = 2000; // Start at 0.5 Hz (2000ms)
@@ -245,6 +285,12 @@
       bombInterval = 1000 / newFreq; // Convert Hz to milliseconds
     });
 
+    invaderSpeedInput.addEventListener('input', (e) => {
+      const newSpeed = parseFloat(e.target.value);
+      invaderSpeedDisplay.textContent = `Current: ${newSpeed.toFixed(1)}`;
+      invaderSpeed = newSpeed;
+    });
+
     // Create stars
     function createStars() {
       const stars = document.getElementById('stars');
@@ -268,6 +314,7 @@
     // Game State
     let gameActive = true;
     let lives = 3;
+    let invaderSpeed = 1; // Initial speed of invaders
 
     // Player
     let playerX = canvas.width / 2;
@@ -547,7 +594,7 @@ const bombSpeed = 3;
       for (let c = 0; c < invaderColumnCount; c++) {
         for (let r = 0; r < invaderRowCount; r++) {
           if (invaders[c][r].status === 1) {
-            invaders[c][r].x += invaderDirection;
+            invaders[c][r].x += invaderDirection * invaderSpeed;
           }
         }
       }
@@ -607,6 +654,15 @@ const bombSpeed = 3;
       }
     }
 
+    function drawLevel() {
+      ctx.font = "20px 'Courier New'";
+      ctx.fillStyle = "#0f0";
+      ctx.shadowColor = "#0f0";
+      ctx.shadowBlur = 10;
+      ctx.fillText("LEVEL: " + currentLevel, 8, 45);
+      ctx.shadowBlur = 0;
+    }
+
     function drawScore() {
       ctx.font = "20px 'Courier New'";
       ctx.fillStyle = "#0ff";
@@ -614,6 +670,43 @@ const bombSpeed = 3;
       ctx.shadowBlur = 10;
       ctx.fillText("SCORE: " + score, 8, 20);
       ctx.shadowBlur = 0;
+    }
+
+    function checkLevelComplete() {
+      let allInvadersDestroyed = true;
+      for (let c = 0; c < invaderColumnCount; c++) {
+        for (let r = 0; r < invaderRowCount; r++) {
+          if (invaders[c][r].status === 1) {
+            allInvadersDestroyed = false;
+            break;
+          }
+        }
+        if (!allInvadersDestroyed) break;
+      }
+
+      if (allInvadersDestroyed && levelInProgress) {
+        levelInProgress = false;
+        levelCompleteScreen.classList.add('show');
+        
+        // Start next level after 2 seconds
+        setTimeout(() => {
+          currentLevel++;
+          // Increase difficulty
+          invaderSpeed *= 1.1; // 10% faster
+          const newBombFreq = parseFloat(bombFrequencyInput.value) * 1.1;
+          bombFrequencyInput.value = Math.min(newBombFreq, 10).toFixed(1);
+          bombInterval = 1000 / newBombFreq;
+          
+          // Update displays
+          invaderSpeedDisplay.textContent = `Current: ${invaderSpeed.toFixed(1)}`;
+          bombFrequencyDisplay.textContent = `Current: ${newBombFreq.toFixed(1)} Hz`;
+          
+          // Reset for next level
+          levelInProgress = true;
+          initializeInvaders();
+          levelCompleteScreen.classList.remove('show');
+        }, 2000);
+      }
     }
 
     function gameLoop() {
@@ -629,11 +722,13 @@ const bombSpeed = 3;
       drawExplosions();
       drawScore();
       drawLives();
+      drawLevel();
 
       updateInvaders();
       updateBullets();
       updateBombs();
       collisionDetection();
+      checkLevelComplete();
 
       requestAnimationFrame(gameLoop);
     }
@@ -646,9 +741,15 @@ const bombSpeed = 3;
         gameActive = true;
         lives = 3;
         score = 0;
+        currentLevel = 1;
+        levelInProgress = true;
         bombs.length = 0;
         bullets.length = 0;
         explosions.length = 0;
+        invaderSpeed = 1;
+        invaderSpeedInput.value = "1";
+        invaderSpeedDisplay.textContent = "Current: 1";
+        levelCompleteScreen.classList.remove('show');
         initializeInvaders();
         gameOverScreen.classList.remove('show');
         gameLoop();
